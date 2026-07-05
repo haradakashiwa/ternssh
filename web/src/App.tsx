@@ -12,16 +12,18 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <div className="app-brand">ternssh</div>
-      {me && (
-        <div className="app-status">
-          <Badge>
-            {me.authMode === "open"
-              ? `开放模式 · ${me.user.display_name ?? "Default"}`
-              : me.user.email ?? me.user.display_name ?? me.user.id}
-          </Badge>
-        </div>
-      )}
+      <header className="workspace-header">
+        <div className="app-brand">ternssh</div>
+        {me && (
+          <div className="app-status">
+            <Badge>
+              {me.authMode === "open"
+                ? `开放模式 · ${me.user.display_name ?? "Default"}`
+                : me.user.email ?? me.user.display_name ?? me.user.id}
+            </Badge>
+          </div>
+        )}
+      </header>
       <DashboardView />
     </div>
   );

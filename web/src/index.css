@@ -47,38 +47,49 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  --workspace-header-height: 48px;
+}
+
+.workspace-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  height: var(--workspace-header-height);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in oklch, var(--color-background) 88%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .app-brand {
-  position: fixed;
-  top: 12px;
-  left: 16px;
-  z-index: 50;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--color-muted-foreground);
-  pointer-events: none;
   user-select: none;
 }
 
 .app-status {
-  position: fixed;
-  top: 10px;
-  right: 16px;
-  z-index: 50;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
 }
 
 .workspace {
   height: 100vh;
   width: 100vw;
   overflow: auto;
+  padding-top: var(--workspace-header-height);
 }
 
 .workspace-toast {
   position: fixed;
-  top: 44px;
+  top: calc(var(--workspace-header-height) + 8px);
   left: 50%;
   z-index: 50;
   translate: -50% 0;
@@ -93,7 +104,7 @@ body {
 .grid-dashboard-host {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100%;
   user-select: none;
   --grid-step-x: 80px;
   --grid-step-y: 52px;
@@ -149,21 +160,27 @@ body {
   padding: 0 10px;
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in oklch, var(--color-secondary) 85%, transparent);
-  cursor: grab;
-  touch-action: none;
-}
-
-.widget-drag-handle:active {
-  cursor: grabbing;
 }
 
 .widget-drag-grip {
   display: block;
   flex-shrink: 0;
   width: 32px;
-  height: 4px;
+  height: 12px;
   border-radius: 999px;
-  background: var(--color-muted-foreground);
+  cursor: grab;
+  touch-action: none;
+  background: radial-gradient(
+    circle,
+    var(--color-muted-foreground) 2px,
+    transparent 2px
+  );
+  background-size: 8px 4px;
+  background-position: center;
+}
+
+.widget-drag-grip:active {
+  cursor: grabbing;
 }
 
 .widget-drag-label {

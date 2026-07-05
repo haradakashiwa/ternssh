@@ -122,7 +122,7 @@ export function GridDashboard({
         setPixelDrag({
           id: currentInteraction.id,
           left: currentInteraction.originLeft + dx,
-          top: currentInteraction.originTop + dy,
+          top: Math.max(0, currentInteraction.originTop + dy),
         });
         return;
       }
@@ -253,7 +253,7 @@ export function GridDashboard({
   );
 
   const hostStyle: CSSProperties = {
-    minHeight: "100vh",
+    minHeight: "100%",
     height: contentHeight,
     ["--grid-step-x" as string]: `${stepX}px`,
     ["--grid-step-y" as string]: `${stepY}px`,
@@ -288,11 +288,12 @@ export function GridDashboard({
             data-dragging={isDragging || undefined}
             data-resizing={isResizing || undefined}
           >
-            <div
-              className="widget-drag-handle"
-              onPointerDown={(event) => startDrag(item, event)}
-            >
-              <span className="widget-drag-grip" />
+            <div className="widget-drag-handle">
+              <span
+                className="widget-drag-grip"
+                onPointerDown={(event) => startDrag(item, event)}
+                aria-label="拖拽移动"
+              />
               <span className="widget-drag-label">{getItemTitle(item)}</span>
               {renderHandleActions && (
                 <div
