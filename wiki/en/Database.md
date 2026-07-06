@@ -12,6 +12,8 @@ Migrations live in `server/migrations/`:
 | `0002_server_groups.sql` | server_groups; servers add group_id / sort_order |
 | `0003_saved_passwords.sql` | saved_passwords credential vault |
 | `0004_saved_private_keys.sql` | saved_private_keys credential vault |
+| `0005_basic_auth_lockouts.sql` | basic_auth_lockouts login lockout |
+| `0006_basic_auth_credentials.sql` | basic_auth_credentials app-layer Basic Auth |
 
 ```bash
 npm run db:migrate:local   # Local

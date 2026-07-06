@@ -12,6 +12,8 @@
 | `0002_server_groups.sql` | server_groups，servers 增加 group_id / sort_order |
 | `0003_saved_passwords.sql` | saved_passwords 凭据 vault |
 | `0004_saved_private_keys.sql` | saved_private_keys 凭据 vault |
+| `0005_basic_auth_lockouts.sql` | basic_auth_lockouts 登录失败锁定 |
+| `0006_basic_auth_credentials.sql` | basic_auth_credentials 应用层 Basic Auth 凭据 |
 
 ```bash
 npm run db:migrate:local   # 本地

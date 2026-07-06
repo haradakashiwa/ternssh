@@ -4,26 +4,35 @@
 
 ## Security
 
-- **Open mode** has no application-layer authentication—do not expose sensitive environments on the public internet
+- Without Cloudflare Access, instances **must** complete initial onboarding to set login credentials—there is no unauthenticated “open mode”
 - Access mode is a login gate only; all verified requests use the built-in `default` user data
+- HTTP Basic Auth credentials live in D1 `basic_auth_credentials` (password stored as a PBKDF2 hash, not plain text)
 - SSH passwords/keys are stored in D1 `credentials` (per server); vault entries in `saved_passwords` / `saved_private_keys`
+- Once Basic Auth is enabled, **every path and asset** requires authentication first; responses include `X-Robots-Tag: noindex` to reduce search-engine indexing
 - Full-site HTTPS / WSS; DO instances isolated per session
 
 ## Authentication
 
-ternssh supports three access modes, switched via environment variables:
+ternssh picks one of three modes based on whether Cloudflare Access is configured and whether Basic Auth credentials exist in D1:
 
-| Mode | Description | Best for |
-|------|-------------|----------|
-| **Open mode** | No auth variables configured | Local dev, private networks |
-| **Cloudflare Access** | Zero Trust JWT verification | Cloudflare Workers production |
-| **HTTP Basic Auth** | Username + password | Docker, self-hosted, Workers |
+| Mode | Condition | Description |
+|------|-----------|-------------|
+| **onboarding** | Access not configured, no Basic Auth yet | First visit shows setup page to create username and password |
+| **basic** | Access not configured, Basic Auth set up | Browser HTTP Basic Auth; credentials from the database |
+| **access** | `ACCESS_TEAM_DOMAIN` + `ACCESS_AUD` configured | Cloudflare Zero Trust JWT verification |
 
-Access and Basic Auth can be **enabled together** (Basic Auth first, then Access). Configure variables in the Workers Dashboard or Docker env—**not** in `wrangler.production.jsonc`.
+> When Access is configured, database Basic Auth credentials are not used. Set Access variables in the Workers Dashboard or Docker `.dev.vars`—**not** in `wrangler.production.jsonc`.
 
-### Open mode
+### Initial setup (onboarding)
 
-Leave all variables below unset. Anyone can reach the app; all users share the same servers and layout.
+When Cloudflare Access is not configured and no login credentials exist in the database, the instance enters **onboarding**:
+
+1. Choose a username
+2. Set a password and confirm it
+3. Credentials are written to D1 `basic_auth_credentials`
+4. The page reloads and the browser shows the Basic Auth login prompt
+
+Local dev (`npm run dev:server`), Docker, and self-hosted Workers all follow the same flow.
 
 ### Configure Cloudflare Access
 
@@ -80,62 +89,52 @@ ACCESS_AUD=your-64-char-aud-tag
 
 Local `wrangler dev` does not go through the Access login page; you need a valid JWT to test Access mode locally—mainly useful for checking variable format.
 
-### Configure HTTP Basic Auth
+### HTTP Basic Auth (database credentials)
 
-Both username and password **must** be set to enable Basic Auth. Browsers show a login prompt on access.
+Basic Auth is **not** configured via environment variables. Credentials are created during onboarding and stored in D1; the server validates them on each request.
 
-#### Cloudflare Workers
+#### When it applies
 
-Cloudflare Dashboard → **Workers & Pages** → ternssh → **Settings** → **Variables and Secrets**:
-
-| Name | Type | Value |
-|------|------|-------|
-| `BASICAUTH_USERNAME` | Variable (plain text) | Your username |
-| `BASICAUTH_PASSWORD` | Secret (recommended) | Strong password |
+- Docker / self-hosted
+- Workers instances without Cloudflare Access
 
 #### Docker
 
-**docker compose** (recommended)—create a `.env` file in the project directory:
-
-```bash
-BASICAUTH_USERNAME=admin
-BASICAUTH_PASSWORD=your-secure-password
-```
+After first start, visit the instance URL and complete onboarding. Credentials persist in the local D1 database inside the `/app/.wrangler` volume.
 
 ```bash
 docker compose -f docker-compose.ghcr.yml up -d
 # or from source: docker compose up -d --build
 ```
 
-**docker run**:
-
 ```bash
 docker run -d \
   --name ternssh \
   -p 8787:8787 \
-  -e BASICAUTH_USERNAME=admin \
-  -e BASICAUTH_PASSWORD=your-secure-password \
   -v ternssh-data:/app/.wrangler \
   ghcr.io/haradakashiwa/ternssh:latest
 ```
 
-#### Local development
+#### After login
 
-Copy `.dev.vars.example` to `.dev.vars`:
+In Basic Auth mode, open **Settings → Security** to:
 
-```bash
-BASICAUTH_USERNAME=admin
-BASICAUTH_PASSWORD=change-me
-```
+- Change username (requires current password)
+- Change password (requires confirmation)
+- **Sign out** (clears the browser’s cached Basic Auth credentials)
 
-Run `npm run dev:server`, then visit `http://localhost:8787`—the browser will prompt for credentials.
+After saving credential changes, you are signed out automatically and must log in again with the new credentials.
 
 #### Lockout
 
 **3** failed password attempts from the same IP lock access for **1 hour** (via `CF-Connecting-IP`; cleared on successful login).
 
-### Enable Access + Basic Auth together
+#### Related API
 
-Set both variable groups on the Worker. Requests must pass **Basic Auth first, then Access JWT** (browser prompt, then Cloudflare Access login).
-
-Typical use: Basic Auth as an extra layer, Access for identity and policy management.
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/onboarding/status` | Current auth mode (anonymous during onboarding) |
+| `POST /api/v1/onboarding/setup` | Initial credential setup |
+| `GET /api/v1/auth/credentials` | Current username |
+| `PUT /api/v1/auth/credentials` | Update username/password |
+| `POST /api/v1/auth/logout` | Sign out |

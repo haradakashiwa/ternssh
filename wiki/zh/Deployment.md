@@ -43,4 +43,4 @@ docker compose -f docker-compose.ghcr.yml up -d
 
 访问 `http://localhost:8787`（或你映射的端口）。数据持久化于卷 `/app/.wrangler`。
 
-Basic Auth 配置见 [安全说明 · 鉴权](../zh/Security.md#配置-http-basic-auth)。
+Basic Auth 与 onboarding 说明见 [安全说明 · HTTP Basic Auth（数据库凭据）](../zh/Security.md#http-basic-auth数据库凭据)。

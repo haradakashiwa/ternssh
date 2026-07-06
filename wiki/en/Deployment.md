@@ -43,4 +43,4 @@ Build from source: `docker compose up -d --build`
 
 Open `http://localhost:8787` (or your mapped port). Data persists in the `/app/.wrangler` volume.
 
-Basic Auth setup: [Security · Configure HTTP Basic Auth](../en/Security.md#configure-http-basic-auth).
+Basic Auth setup: [Security · HTTP Basic Auth (database credentials)](../en/Security.md#http-basic-auth-database-credentials).

@@ -4,26 +4,35 @@
 
 ## 安全说明
 
-- **开放模式**无应用层认证，请勿在公网暴露敏感环境
+- 未配置 Cloudflare Access 时，实例**必须**完成首次 onboarding 设置登录凭据，不存在无认证的「开放模式」
 - Access 模式仅作登录门禁，所有通过校验的请求使用内置用户 `default` 的数据
+- HTTP Basic Auth 凭据存于 D1 `basic_auth_credentials` 表（密码为 PBKDF2 哈希，非明文）
 - SSH 密码/私钥存于 D1 `credentials` 表（按服务器引用）；vault 条目存于 `saved_passwords` / `saved_private_keys`
+- 启用 Basic Auth 后，**所有路径与资源**均需先通过认证方可访问；响应附带 `X-Robots-Tag: noindex` 以降低被搜索引擎收录的风险
 - 全站 HTTPS / WSS；DO 实例按 session 隔离
 
 ## 鉴权
 
-ternssh 提供三种访问模式，通过环境变量切换：
+ternssh 根据 Cloudflare Access 是否配置、以及 D1 中是否已有 Basic Auth 凭据，自动进入以下模式之一：
 
-| 模式 | 说明 | 适用场景 |
-|------|------|----------|
-| **开放模式** | 不配置任何认证变量 | 本地开发、内网部署 |
-| **Cloudflare Access** | Zero Trust JWT 校验 | Cloudflare Workers 生产部署 |
-| **HTTP Basic Auth** | 用户名 + 密码 | Docker、自托管、Workers |
+| 模式 | 条件 | 说明 |
+|------|------|------|
+| **onboarding** | 未配置 Access，且尚未设置 Basic Auth | 首次访问进入设置页，创建用户名与密码 |
+| **basic** | 未配置 Access，且已设置 Basic Auth | 浏览器 HTTP Basic Auth，凭据来自数据库 |
+| **access** | 已配置 `ACCESS_TEAM_DOMAIN` + `ACCESS_AUD` | Cloudflare Zero Trust JWT 校验 |
 
-Access 与 Basic Auth **可同时启用**（需先通过 Basic Auth，再通过 Access）。变量**不要**写进 `wrangler.production.jsonc`，在 Workers Dashboard 或 Docker 环境变量中配置。
+> 配置了 Access 后，不再使用数据库中的 Basic Auth 凭据。Access 变量**不要**写进 `wrangler.production.jsonc`，在 Workers Dashboard 或 Docker 的 `.dev.vars` 中配置。
 
-### 开放模式
+### 首次设置（onboarding）
 
-不设置下方任何变量即可。任何人可访问应用，所有用户共享同一套服务器与布局数据。
+未配置 Cloudflare Access 且数据库中尚无登录凭据时，访问实例会进入 **onboarding** 页面：
+
+1. 设置用户名
+2. 设置密码并再次确认
+3. 提交后凭据写入 D1 `basic_auth_credentials` 表
+4. 页面刷新，浏览器弹出 Basic Auth 登录框
+
+本地开发（`npm run dev:server`）与 Docker / Workers 自托管均走同一流程。
 
 ### 配置 Cloudflare Access
 
@@ -80,62 +89,52 @@ ACCESS_AUD=your-64-char-aud-tag
 
 本地 `wrangler dev` 不会自动经过 Access 登录页；需自行携带有效 JWT 才能测试 Access 模式，一般仅用于验证变量格式。
 
-### 配置 HTTP Basic Auth
+### HTTP Basic Auth（数据库凭据）
 
-用户名与密码**必须同时设置**才会启用。浏览器访问时会弹出登录框。
+Basic Auth **不通过环境变量配置**。凭据在 onboarding 时写入 D1，之后每次请求由服务端校验。
 
-#### Cloudflare Workers
+#### 适用场景
 
-Cloudflare Dashboard → **Workers & Pages** → ternssh → **Settings** → **Variables and Secrets**：
-
-| 名称 | 类型 | 值 |
-|------|------|-----|
-| `BASICAUTH_USERNAME` | Variable（明文） | 自定义用户名 |
-| `BASICAUTH_PASSWORD` | Secret（推荐） | 强密码 |
+- Docker / 自托管
+- 未启用 Cloudflare Access 的 Workers 实例
 
 #### Docker
 
-**docker compose**（推荐）—— 在项目目录创建 `.env`：
-
-```bash
-BASICAUTH_USERNAME=admin
-BASICAUTH_PASSWORD=your-secure-password
-```
+首次启动后访问实例 URL，按 onboarding 流程设置账号密码即可。凭据保存在挂载卷 `/app/.wrangler` 内的本地 D1 数据库中。
 
 ```bash
 docker compose -f docker-compose.ghcr.yml up -d
 # 或从源码：docker compose up -d --build
 ```
 
-**docker run**：
-
 ```bash
 docker run -d \
   --name ternssh \
   -p 8787:8787 \
-  -e BASICAUTH_USERNAME=admin \
-  -e BASICAUTH_PASSWORD=your-secure-password \
   -v ternssh-data:/app/.wrangler \
   ghcr.io/haradakashiwa/ternssh:latest
 ```
 
-#### 本地开发
+#### 登录后管理
 
-复制 `.dev.vars.example` 为 `.dev.vars`：
+Basic Auth 模式下，打开 **设置 → 安全** 可：
 
-```bash
-BASICAUTH_USERNAME=admin
-BASICAUTH_PASSWORD=change-me
-```
+- 修改用户名（需输入当前密码）
+- 修改密码（需输入新密码并确认）
+- **退出登录**（清除浏览器缓存的 Basic Auth 凭据）
 
-运行 `npm run dev:server` 后，访问 `http://localhost:8787` 会提示输入用户名和密码。
+修改凭据保存后会自动退出，需用新凭据重新登录。
 
 #### 失败锁定
 
 同一 IP 密码错误 **3 次**将锁定 **1 小时**（按 `CF-Connecting-IP` 识别；登录成功后清零）。
 
-### 同时启用 Access + Basic Auth
+#### 相关 API
 
-在 Workers 上同时配置上述两组变量。请求需**先通过 Basic Auth，再通过 Access JWT**（先浏览器弹窗，再 Cloudflare Access 登录页）。
-
-典型场景：Basic Auth 作为额外防护层，Access 提供身份与策略管理。
+| 接口 | 说明 |
+|------|------|
+| `GET /api/v1/onboarding/status` | 查询当前鉴权模式（onboarding 阶段可匿名访问） |
+| `POST /api/v1/onboarding/setup` | 首次设置凭据 |
+| `GET /api/v1/auth/credentials` | 获取当前用户名 |
+| `PUT /api/v1/auth/credentials` | 修改用户名/密码 |
+| `POST /api/v1/auth/logout` | 退出登录 |
