@@ -779,7 +779,7 @@ export function FileManagerWidget({
                 <tr
                   key={entry.name}
                   className={cn(
-                    "cursor-pointer border-b border-[var(--color-border)]/40 hover:bg-[var(--color-secondary)]/60",
+                    "cursor-pointer select-none border-b border-[var(--color-border)]/40 hover:bg-[var(--color-secondary)]/60",
                     selected && "bg-[var(--color-secondary)]",
                   )}
                   onClick={() => setSelectedName(entry.name)}

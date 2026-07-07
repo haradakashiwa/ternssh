@@ -489,7 +489,7 @@ export function ServerListWidget({
 
                 <div
                   className={cn(
-                    "group flex items-center gap-1 py-0.5 pr-1 transition-colors hover:bg-[var(--color-secondary)]/50",
+                    "group flex select-none items-center gap-1 py-0.5 pr-1 transition-colors hover:bg-[var(--color-secondary)]/50",
                     isActive && "bg-[var(--color-secondary)]",
                     connected && !isActive && "bg-[var(--color-secondary)]/30",
                     showIntoDrop && "bg-[var(--color-secondary)]/70",
@@ -575,7 +575,7 @@ export function ServerListWidget({
 
                   <button
                     type="button"
-                    className="widget-no-drag flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
+                    className="widget-no-drag flex min-w-0 flex-1 select-none items-center gap-2 text-left text-sm"
                     onClick={() => {
                       if (isGroup) {
                         toggleExpanded(node.id);

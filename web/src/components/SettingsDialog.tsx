@@ -91,11 +91,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} className="max-w-2xl p-0">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
+      <div className="flex items-center border-b border-[var(--color-border)] px-6 py-4">
         <h2 className="text-lg font-semibold">{t("header.settings")}</h2>
-        <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-          {t("common.close")}
-        </Button>
       </div>
 
       <div className="flex min-h-[28rem]">
