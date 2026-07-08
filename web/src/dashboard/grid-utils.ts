@@ -69,21 +69,136 @@ export function snapItemFromPixels(
   const item = layout.find((entry) => entry.i === itemId);
   if (!item) return layout;
 
+  const { x, y } = pixelPositionToGrid(left, top, item, metrics);
+  return resolveLayoutWithDodge(layout, itemId, x, y, metrics.cols);
+}
+
+export function pixelPositionToGrid(
+  left: number,
+  top: number,
+  item: GridItem,
+  metrics: GridMetrics,
+): { x: number; y: number } {
   const { stepX, stepY } = gridSteps(metrics);
   let x = Math.round(left / stepX);
   let y = Math.round(top / stepY);
   x = clamp(x, 0, Math.max(0, metrics.cols - item.w));
   y = Math.max(0, y);
+  return { x, y };
+}
 
-  let snapped = clampItem({ ...item, x, y }, metrics.cols);
-  const others = layout.filter((entry) => entry.i !== itemId);
+export function resolveLayoutWithDodge(
+  layout: GridItem[],
+  movedId: string,
+  targetX: number,
+  targetY: number,
+  cols: number,
+): GridItem[] {
+  const moved = layout.find((entry) => entry.i === movedId);
+  if (!moved) return layout;
 
-  while (collidesAny(snapped, others)) {
-    y += 1;
-    snapped = { ...snapped, y };
+  const items = layout.map((entry) =>
+    entry.i === movedId
+      ? clampItem({ ...entry, x: targetX, y: targetY }, cols)
+      : { ...entry },
+  );
+
+  return pushCollidingItems(items, movedId, cols);
+}
+
+function pushCollidingItems(
+  layout: GridItem[],
+  pinnedId: string,
+  cols: number,
+): GridItem[] {
+  const maxIterations = layout.length * layout.length * 8;
+  let items = layout.map((entry) => ({ ...entry }));
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    let changed = false;
+    const pinned = items.find((entry) => entry.i === pinnedId);
+    if (!pinned) break;
+
+    const order = items
+      .filter((entry) => entry.i !== pinnedId)
+      .sort((a, b) => {
+        const aPinned = collides(a, pinned);
+        const bPinned = collides(b, pinned);
+        if (aPinned !== bPinned) return aPinned ? -1 : 1;
+        return a.y - b.y || a.x - b.x;
+      });
+
+    for (const item of order) {
+      const index = items.findIndex((entry) => entry.i === item.i);
+      const current = items[index];
+      const colliders = items.filter(
+        (other) => other.i !== current.i && collides(current, other),
+      );
+      if (colliders.length === 0) continue;
+
+      const blocker =
+        colliders.find((other) => other.i === pinnedId) ?? colliders[0];
+      const dodged = findDodgePosition(current, blocker, items, cols);
+      if (dodged.x !== current.x || dodged.y !== current.y) {
+        items[index] = dodged;
+        changed = true;
+      }
+    }
+
+    if (!changed) break;
   }
 
-  return layout.map((entry) => (entry.i === itemId ? snapped : entry));
+  return items.map((entry) => clampItem(entry, cols));
+}
+
+function findDodgePosition(
+  item: GridItem,
+  blocker: GridItem,
+  allItems: GridItem[],
+  cols: number,
+): GridItem {
+  const others = allItems.filter((other) => other.i !== item.i);
+
+  for (const { x, y } of dodgeCandidates(item, blocker)) {
+    const candidate = clampItem({ ...item, x, y }, cols);
+    if (!collidesAny(candidate, others)) {
+      return candidate;
+    }
+  }
+
+  let y = item.y;
+  for (let step = 0; step < 200; step++) {
+    const candidate = clampItem({ ...item, y }, cols);
+    if (!collidesAny(candidate, others)) {
+      return candidate;
+    }
+    y += 1;
+  }
+
+  return clampItem(item, cols);
+}
+
+function dodgeCandidates(
+  item: GridItem,
+  blocker: GridItem,
+): Array<{ x: number; y: number }> {
+  const down = { x: item.x, y: blocker.y + blocker.h };
+  const up = { x: item.x, y: blocker.y - item.h };
+  const right = { x: blocker.x + blocker.w, y: item.y };
+  const left = { x: blocker.x - item.w, y: item.y };
+
+  const itemCx = item.x + item.w / 2;
+  const itemCy = item.y + item.h / 2;
+  const blockerCx = blocker.x + blocker.w / 2;
+  const blockerCy = blocker.y + blocker.h / 2;
+  const dx = itemCx - blockerCx;
+  const dy = itemCy - blockerCy;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? [right, down, up, left] : [left, down, up, right];
+  }
+
+  return dy >= 0 ? [down, right, left, up] : [up, right, left, down];
 }
 
 export function snapItemSizeFromPixels(

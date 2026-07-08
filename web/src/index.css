@@ -242,6 +242,10 @@ html[data-has-background="true"] .grid-dashboard-host {
   box-shadow: 0 12px 40px var(--widget-drag-shadow);
 }
 
+.grid-dashboard-item[data-dodging] {
+  transition: transform 0.15s ease;
+}
+
 .widget-drag-handle {
   display: flex;
   flex-shrink: 0;

@@ -78,6 +78,7 @@ export function GridDashboard({
   const [interaction, setInteraction] = useState<Interaction>({ kind: "idle" });
   const [pixelDrag, setPixelDrag] = useState<PixelDrag | null>(null);
   const [pixelResize, setPixelResize] = useState<PixelResize | null>(null);
+  const [previewLayout, setPreviewLayout] = useState<GridItem[] | null>(null);
   const layoutRef = useRef(layout);
   const interactionRef = useRef(interaction);
   const pixelDragRef = useRef(pixelDrag);
@@ -122,11 +123,22 @@ export function GridDashboard({
       const dy = event.clientY - currentInteraction.startY;
 
       if (currentInteraction.kind === "drag") {
+        const dragLeft = currentInteraction.originLeft + dx;
+        const dragTop = Math.max(0, currentInteraction.originTop + dy);
         setPixelDrag({
           id: currentInteraction.id,
-          left: currentInteraction.originLeft + dx,
-          top: Math.max(0, currentInteraction.originTop + dy),
+          left: dragLeft,
+          top: dragTop,
         });
+        setPreviewLayout(
+          snapItemFromPixels(
+            layoutRef.current,
+            currentInteraction.id,
+            dragLeft,
+            dragTop,
+            metrics,
+          ),
+        );
         return;
       }
 
@@ -179,6 +191,7 @@ export function GridDashboard({
       onLayoutChange(next);
       setPixelDrag(null);
       setPixelResize(null);
+      setPreviewLayout(null);
       setInteraction({ kind: "idle" });
       interactionRef.current = { kind: "idle" };
     };
@@ -210,6 +223,7 @@ export function GridDashboard({
       pointerId: event.pointerId,
     };
     setPixelDrag({ id: item.i, left: rect.left, top: rect.top });
+    setPreviewLayout(null);
     setInteraction(next);
     interactionRef.current = next;
   };
@@ -241,15 +255,16 @@ export function GridDashboard({
     return <div ref={containerRef} className="grid-dashboard-host" />;
   }
 
+  const activeLayout = previewLayout ?? layout;
   const { colWidth: cw, stepX, stepY, marginX, marginY } = gridSteps(metrics);
   const dragItem = pixelDrag
-    ? layout.find((item) => item.i === pixelDrag.id)
+    ? activeLayout.find((item) => item.i === pixelDrag.id)
     : null;
   const dragHeight =
     dragItem && pixelDrag ? itemRect(metrics, dragItem).height : null;
   const contentHeight = containerHeightFromPixels(
     metrics,
-    layout,
+    activeLayout,
     pixelDrag?.top ?? null,
     dragHeight,
     pixelResize?.height ?? null,
@@ -270,9 +285,12 @@ export function GridDashboard({
     <div ref={containerRef} className="grid-dashboard-host" style={hostStyle}>
       <div className="grid-dashboard-dots" aria-hidden />
       {layout.map((item) => {
-        const rect = itemRect(metrics, item);
+        const gridItem =
+          activeLayout.find((entry) => entry.i === item.i) ?? item;
+        const rect = itemRect(metrics, gridItem);
         const isDragging = pixelDrag?.id === item.i;
         const isResizing = pixelResize?.id === item.i;
+        const isDodging = previewLayout !== null && !isDragging && !isResizing;
 
         const left = isDragging ? pixelDrag.left : rect.left;
         const top = isDragging ? pixelDrag.top : rect.top;
@@ -290,6 +308,7 @@ export function GridDashboard({
             }}
             data-dragging={isDragging || undefined}
             data-resizing={isResizing || undefined}
+            data-dodging={isDodging || undefined}
           >
             <div className="widget-drag-handle">
               <button
