@@ -26,9 +26,11 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/HaradaKashiwa/ternssh/refs/heads/main/docs/preview.png">
-    <img src="docs/preview.png" alt="ternssh dashboard preview" width="1024" />
-  </a>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/preview-dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/preview-light.png" />
+    <img src="docs/preview-light.png" alt="ternssh dashboard preview" width="1024" />
+  </picture>
 </p>
 
 ---
