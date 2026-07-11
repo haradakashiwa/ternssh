@@ -7,7 +7,7 @@
     "dev:server": "wrangler dev --ip 0.0.0.0",
     "dev:web": "npm run dev --prefix web",
     "build": "npm run build --prefix web",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler d1 migrations apply ternssh --remote && wrangler deploy",
     "release": "npm run build && npm run deploy",
     "db:migrate:local": "wrangler d1 migrations apply ternssh --local",
     "types": "wrangler types --config wrangler.jsonc --env-interface Env server/worker-configuration.d.ts"
