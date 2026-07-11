@@ -7,15 +7,10 @@
     "dev:server": "wrangler dev --ip 0.0.0.0",
     "dev:web": "npm run dev --prefix web",
     "build": "npm run build --prefix web",
-    "postbuild": "node scripts/generate-production-config.mjs",
-    "deploy": "node scripts/generate-production-config.mjs --require && wrangler d1 migrations apply ternssh --remote --config wrangler.production.jsonc && wrangler deploy --config wrangler.production.jsonc",
-    "cf:deploy": "npm run deploy",
+    "deploy": "wrangler deploy",
     "release": "npm run build && npm run deploy",
-    "deploy:config": "cp wrangler.production.jsonc.example wrangler.production.jsonc",
-    "db:migrate": "node scripts/generate-production-config.mjs --require && wrangler d1 migrations apply ternssh --remote --config wrangler.production.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply ternssh --local",
-    "types": "wrangler types --config wrangler.jsonc --env-interface Env server/worker-configuration.d.ts",
-    "build:web": "npm run build --prefix web"
+    "types": "wrangler types --config wrangler.jsonc --env-interface Env server/worker-configuration.d.ts"
   },
   "cloudflare": {
     "bindings": {

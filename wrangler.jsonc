@@ -9,11 +9,13 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  "build": {
+    "command": "npm run build"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "ternssh",
-      "database_id": "local-ternssh-db",
       "migrations_dir": "server/migrations"
     }
   ],
