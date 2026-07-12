@@ -135,6 +135,8 @@ export function FileManagerWidget({
   const [downloadState, setDownloadState] = useState<TransferState | null>(null);
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
   const dragDepthRef = useRef(0);
+  const uploadClientRef = useRef<SftpClient | null>(null);
+  const uploadCancelledRef = useRef(false);
 
   const sortedEntries = useMemo(() => sortSftpEntries(entries), [entries]);
   const selectedEntry = useMemo(
@@ -383,6 +385,11 @@ export function FileManagerWidget({
     await handleDownloadEntry(selectedEntry);
   };
 
+  const handleCancelUpload = useCallback(() => {
+    uploadCancelledRef.current = true;
+    uploadClientRef.current?.cancelUpload();
+  }, []);
+
   const uploadLocalItems = useCallback(
     async (items: { file: File; relativePath: string }[]) => {
       if (!isActive() || !ready || !clientRef.current || items.length === 0) {
@@ -390,13 +397,15 @@ export function FileManagerWidget({
       }
 
       const client = clientRef.current;
+      uploadCancelledRef.current = false;
+      uploadClientRef.current = client;
       setUploading(true);
       setError(null);
       createdDirsRef.current = new Set();
 
       try {
         for (const item of items) {
-          if (!isActive()) return;
+          if (!isActive() || uploadCancelledRef.current) return;
 
           const targetPath = joinRemotePath(remotePath, item.relativePath);
           await ensureRemoteDirectories(
@@ -413,21 +422,24 @@ export function FileManagerWidget({
           });
 
           await client.upload(targetPath, item.file, (progress) => {
-            if (!isActive()) return;
+            if (!isActive() || uploadCancelledRef.current) return;
             setUploadState({
               name: item.relativePath,
               loaded: progress.loaded,
               total: progress.total,
             });
           });
+
+          if (uploadCancelledRef.current) return;
         }
 
-        if (!isActive()) return;
+        if (!isActive() || uploadCancelledRef.current) return;
         await loadDirectory(remotePath);
       } catch (err) {
-        if (!isActive()) return;
+        if (!isActive() || uploadCancelledRef.current) return;
         setError(err instanceof Error ? err.message : t("fileManager.uploadFailed"));
       } finally {
+        uploadClientRef.current = null;
         if (isActive()) {
           setUploading(false);
           setUploadState(null);
@@ -720,13 +732,22 @@ export function FileManagerWidget({
               {formatUploadProgress(uploadState.loaded, uploadState.total)}
             </span>
           </div>
-          <div className="mt-1 h-1.5 bg-[var(--color-secondary)]">
-            <div
-              className="h-full bg-[var(--color-primary)] transition-all"
-              style={{
-                width: `${uploadState.total > 0 ? Math.min(100, (uploadState.loaded / uploadState.total) * 100) : 0}%`,
-              }}
-            />
+          <div className="mt-1 flex items-center gap-2">
+            <div className="h-1.5 min-w-0 flex-1 bg-[var(--color-secondary)]">
+              <div
+                className="h-full bg-[var(--color-primary)] transition-all"
+                style={{
+                  width: `${uploadState.total > 0 ? Math.min(100, (uploadState.loaded / uploadState.total) * 100) : 0}%`,
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-[11px] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+              onClick={handleCancelUpload}
+            >
+              {t("common.cancel")}
+            </button>
           </div>
         </div>
       )}
