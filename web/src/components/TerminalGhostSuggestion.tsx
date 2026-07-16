@@ -25,9 +25,7 @@ export function TerminalGhostSuggestion({
 
   const active = suggestions[activeIndex] ?? suggestions[0] ?? "";
   const suffix =
-    active && partial && active.startsWith(partial)
-      ? completionSuffix(partial, active)
-      : "";
+    active && partial ? completionSuffix(partial, active) : "";
 
   useEffect(() => {
     if (!terminal || !suffix) {

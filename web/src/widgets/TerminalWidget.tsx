@@ -22,9 +22,10 @@ import {
 import { registerTerminalRunner } from "@/lib/terminal-bridge";
 import {
   applyInputToDraft,
-  completionSuffix,
+  buildCompletionPayload,
   findTerminalSuggestions,
   pushTerminalHistory,
+  resolveInputPartial,
   shouldSyncDraftFromEcho,
   syncDraftFromTerminal,
 } from "@/lib/terminal-suggestions";
@@ -152,15 +153,24 @@ function SessionPane({
     setActiveSuggestionIndex(0);
   };
 
+  const readInputState = () => {
+    const terminal = terminalRef.current;
+    const draft = draftRef.current;
+    if (!terminal) {
+      return draft;
+    }
+    return resolveInputPartial(terminal, draft);
+  };
+
   const applySuggestion = (suggestion: string) => {
     const terminal = terminalRef.current;
     const ws = wsRef.current;
     if (!terminal || !ws || ws.readyState !== WebSocket.OPEN) return;
-    const current = draftRef.current;
-    const suffix = completionSuffix(current, suggestion);
-    if (!suffix) return;
-    ws.send(suffix);
-    draftRef.current = current + suffix;
+    const partial = readInputState();
+    const completion = buildCompletionPayload(partial, suggestion);
+    if (!completion) return;
+    ws.send(completion.payload);
+    draftRef.current = completion.nextDraft;
     updateSuggestions(draftRef.current);
   };
 
@@ -387,7 +397,8 @@ function SessionPane({
         !event.altKey &&
         !event.metaKey
       ) {
-        const current = draftRef.current;
+        const current = readInputState();
+        draftRef.current = current;
         const matches = findTerminalSuggestions(session.serverId, current);
         if (matches.length === 0) return true;
 
