@@ -5,12 +5,17 @@ import {
   copyServer,
   deleteGroup,
   deleteServer,
+  getCredentialValue,
+  getServer,
   getServerTree,
   moveTreeItem,
   updateGroup,
   updateServer,
 } from "../db/servers";
-import { validatePrivateKeyCredential } from "../lib/private-key-credential";
+import {
+  parsePrivateKeyCredential,
+  validatePrivateKeyCredential,
+} from "../lib/private-key-credential";
 import { jsonError } from "../lib/http";
 import { isValidServerHost } from "../lib/resolve-host";
 import type { Variables } from "../types";
@@ -292,6 +297,33 @@ serverRoutes.put("/:id", async (c) => {
       error instanceof Error ? error.message : "failed to update server",
     );
   }
+});
+
+// The server's address and credential, for a client that connects to it
+// itself (the desktop app) instead of through a session of the site.
+serverRoutes.get("/:id/credential", async (c) => {
+  const user = c.get("user");
+  const server = await getServer(c.env.DB, user.id, c.req.param("id"));
+  if (!server) return jsonError(c, 404, "server not found");
+  const value = await getCredentialValue(c.env.DB, user.id, server.credential_ref);
+  if (value === null) return jsonError(c, 404, "credential not found");
+  c.header("Cache-Control", "no-store");
+  const base = {
+    id: server.id,
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    auth_type: server.auth_type,
+  };
+  if (server.auth_type === "password") {
+    return c.json({ ...base, password: value });
+  }
+  const key = parsePrivateKeyCredential(value);
+  return c.json({
+    ...base,
+    private_key: key.privateKey,
+    passphrase: key.passphrase ?? "",
+  });
 });
 
 serverRoutes.delete("/:id", async (c) => {
