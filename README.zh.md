@@ -69,3 +69,28 @@ docker compose up -d --build
 ### Cloudflare Workers
 
 详见 [部署指南](https://ternssh.com/docs/deployment)。
+
+## 桌面客户端
+
+[**ternssh desktop**](https://github.com/haradakashiwa/ternssh-desktop) 是 ternssh 的原生桌面客户端，支持 macOS 和 Windows：SSH 终端与服务器管理工具，界面为原生 UI，没有 WebView。
+
+- **本机即可使用**：不添加站点也能管理服务器和本地终端，凭据存在系统钥匙串。
+- **与站点同步**：添加 ternssh 站点后，站点上的服务器、分组和快捷指令出现在独立的标签里，在客户端的修改会写回站点。站点受 Cloudflare Access 保护时，会弹出登录窗口，也可以使用服务令牌。
+- **所有连接都从本机发起**：站点只用来同步 SSH 信息，不经它转发流量。
+- 多标签终端、SFTP 与文件编辑器、快捷指令、服务器状态实时监控、托盘与全局快捷键。
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/haradakashiwa/ternssh-desktop/main/docs/screenshot-server.png" alt="ternssh desktop" width="1024" />
+</p>
+
+### 下载
+
+在 [Releases](https://github.com/haradakashiwa/ternssh-desktop/releases/latest) 下载最新版本：
+
+| 系统 | 文件 |
+|---|---|
+| macOS（Apple 芯片与 Intel） | `ternssh-<版本>-macos-universal.dmg` |
+| Windows x64 | `…-windows-amd64-setup.exe`（安装包）或 `…-windows-amd64-portable.zip`（免安装） |
+| Windows ARM64 | `…-windows-arm64-setup.exe` 或 `…-windows-arm64-portable.zip` |
+
+安装包没有开发者证书签名：macOS 首次打开时请右键应用选「打开」；Windows 若出现 SmartScreen 提示，点「更多信息」→「仍要运行」。同步站点需要较新版本的 ternssh（客户端需要从站点获取服务器凭据）。

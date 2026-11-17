@@ -69,3 +69,28 @@ Open http://localhost:8787 after startup. To enable Cloudflare Access authentica
 ### Cloudflare Workers
 
 See the [deployment guide](https://ternssh.com/docs/deployment) for details.
+
+## Desktop client
+
+[**ternssh desktop**](https://github.com/haradakashiwa/ternssh-desktop) is a native client for macOS and Windows: an SSH terminal and server manager with a native UI, no WebView.
+
+- **Works on its own**: manage servers and local terminals on your machine without any site, with credentials in the system keychain.
+- **Syncs with your ternssh sites**: add a site and its servers, groups and snippets appear in a tab of their own; changes made in the client are written back to the site. Sites behind Cloudflare Access open a sign-in window when asked, or take a service token.
+- **Connects from your machine**: a site only syncs the SSH details, and no traffic goes through it.
+- Terminal tabs, SFTP with an editor, snippets, live server status, a tray and a global hotkey.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/haradakashiwa/ternssh-desktop/main/docs/screenshot-server.png" alt="ternssh desktop" width="1024" />
+</p>
+
+### Download
+
+Get the latest from [Releases](https://github.com/haradakashiwa/ternssh-desktop/releases/latest):
+
+| System | File |
+|---|---|
+| macOS (Apple silicon and Intel) | `ternssh-<version>-macos-universal.dmg` |
+| Windows x64 | `…-windows-amd64-setup.exe` (installer) or `…-windows-amd64-portable.zip` |
+| Windows ARM64 | `…-windows-arm64-setup.exe` or `…-windows-arm64-portable.zip` |
+
+The builds are not signed with a developer certificate: on macOS, right-click the app and choose "Open" the first time; on Windows, if SmartScreen warns, click "More info" → "Run anyway". Syncing a site needs a recent ternssh, which gives the client the servers' credentials.
