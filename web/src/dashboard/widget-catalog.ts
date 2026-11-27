@@ -5,6 +5,7 @@ import {
   Cpu,
   FolderOpen,
   Network,
+  Plug,
   Server,
   Sparkles,
   Terminal,
@@ -23,6 +24,7 @@ const WIDGET_ICONS: Record<AddableWidgetType, LucideIcon> = {
   container: Container,
   quick_commands: Zap,
   ai_command: Sparkles,
+  mcp_access: Plug,
 };
 
 export function widgetIcon(type: string): LucideIcon {

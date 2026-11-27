@@ -34,6 +34,9 @@ dashboardRoutes.put("/", async (c) => {
     }>;
   }>();
 
+  for (const widget of body.widgets ?? []) {
+    if (widget.type === "mcp_access") widget.config_json = null;
+  }
   const dashboard = await updateDashboard(c.env.DB, user.id, body);
   return c.json(dashboard);
 });

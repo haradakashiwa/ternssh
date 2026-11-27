@@ -70,6 +70,20 @@ docker compose up -d --build
 
 详见 [部署指南](https://ternssh.com/docs/deployment)。
 
+## MCP 接入
+
+从「添加组件」加入「MCP 接入」卡片，选择服务器并点击「确认授权」。每次确认都会替换工作区的整份名单。所有已配对客户端共享当前名单。「结束本次授权」会清空名单，移除卡片后可重新添加以继续管理。
+
+在卡片设置中复制接入地址并创建专用令牌，将令牌保存到客户端的安全环境变量 `TERNSSH_MCP_TOKEN`。将下面示例地址替换为卡片显示的地址，即可在 Codex 注册。
+
+```sh
+codex mcp add ternssh --url https://your-ternssh.example/mcp --bearer-token-env-var TERNSSH_MCP_TOKEN
+```
+
+`list_authorized_servers` 返回本次已确认服务器的标识和显示名。更换 SSH 地址、端口或登录账号后需要重新确认授权。客户端令牌可在卡片设置中撤销。
+
+升级已有实例时需要应用 D1 迁移 `0010_mcp_access.sql`。远程客户端应通过 HTTPS 访问 `/mcp`。若 Cloudflare Access 等上游代理也保护 `/mcp`，客户端除了发送 TernSSH MCP 令牌，还需要通过代理的身份验证。
+
 ## 桌面客户端
 
 [**ternssh desktop**](https://github.com/haradakashiwa/ternssh-desktop) 是 ternssh 的原生桌面客户端，支持 macOS 和 Windows：SSH 终端与服务器管理工具，界面为原生 UI，没有 WebView。

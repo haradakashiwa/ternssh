@@ -70,6 +70,20 @@ Open http://localhost:8787 after startup. To enable Cloudflare Access authentica
 
 See the [deployment guide](https://ternssh.com/docs/deployment) for details.
 
+## MCP access
+
+Add **MCP Access** from the dashboard component menu. Select servers and confirm the selection. Each confirmation replaces the complete selection for this workspace. Ending authorization clears the selection for all paired clients. Removing the card only removes it from the dashboard.
+
+In the card settings, copy the MCP endpoint and create a dedicated token. Store the token in your client's secure environment as `TERNSSH_MCP_TOKEN`. To register the endpoint with Codex, substitute the address shown on the card:
+
+```sh
+codex mcp add ternssh --url https://your-ternssh.example/mcp --bearer-token-env-var TERNSSH_MCP_TOKEN
+```
+
+The `list_authorized_servers` tool returns the IDs and display names in the current selection. Changing a server's SSH address, port or login invalidates its grant. Revoke a client token from the settings in the card.
+
+Apply D1 migration `0010_mcp_access.sql` when upgrading. For a remote client, serve `/mcp` over HTTPS. If an upstream proxy such as Cloudflare Access also protects `/mcp`, the client must satisfy the proxy's authentication as well as send the TernSSH MCP token.
+
 ## Desktop client
 
 [**ternssh desktop**](https://github.com/haradakashiwa/ternssh-desktop) is a native client for macOS and Windows: an SSH terminal and server manager with a native UI, no WebView.

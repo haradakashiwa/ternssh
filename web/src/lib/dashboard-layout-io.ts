@@ -1,6 +1,6 @@
-import { ADDABLE_WIDGETS, type AddableWidgetType } from "@/dashboard/widgets";
+import { ADDABLE_WIDGETS, type AddableWidgetType } from "../dashboard/widgets.ts";
 import type { Dashboard } from "@/lib/api";
-import { newId } from "@/lib/id";
+import { newId } from "./id.ts";
 
 export const DASHBOARD_LAYOUT_EXPORT_VERSION = 1;
 
@@ -40,7 +40,7 @@ export function buildDashboardLayoutExport(
     name: dashboard.dashboard.name,
     widgets: dashboard.widgets.map((widget) => ({
       type: widget.type as AddableWidgetType,
-      config_json: widget.config_json,
+      config_json: widget.type === "mcp_access" ? null : widget.config_json,
       grid_x: widget.grid_x,
       grid_y: widget.grid_y,
       grid_w: widget.grid_w,
@@ -87,7 +87,7 @@ function parseWidget(raw: unknown): DashboardLayoutExportWidget {
 
   return {
     type: widget.type as AddableWidgetType,
-    config_json: configJson,
+    config_json: widget.type === "mcp_access" ? null : configJson,
     grid_x: clampGrid(widget.grid_x!, 0, 11),
     grid_y: clampGrid(widget.grid_y!, 0, 9999),
     grid_w: clampGrid(widget.grid_w!, 1, 12),

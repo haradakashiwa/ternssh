@@ -128,6 +128,33 @@ export interface UpdateAuthCredentialsInput {
   confirmPassword?: string;
 }
 
+export interface McpServerChoice {
+  id: string;
+  name: string;
+  identityVersion: string;
+}
+
+export interface McpTokenInfo {
+  id: string;
+  createdAt: string;
+}
+
+export interface McpAccessState {
+  revision: number;
+  availableServers: McpServerChoice[];
+  authorizedServerIds: string[];
+  tokens: McpTokenInfo[];
+  recentCalls: Array<{ at: string; target: string | null; result: "listed" }>;
+}
+
+export class ApiResponseError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -141,13 +168,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = (await response.json().catch(() => null)) as {
       error?: string;
     } | null;
-    throw new Error(body?.error ?? `Request failed (${response.status})`);
+    throw new ApiResponseError(response.status, body?.error ?? `Request failed (${response.status})`);
   }
 
   return response.json() as Promise<T>;
 }
 
 export const api = {
+  getMcpAccess: (signal: AbortSignal) =>
+    request<McpAccessState>("/api/v1/mcp-access/state", { signal, cache: "no-store" }),
+  replaceMcpAuthorization: (revision: number, servers: Pick<McpServerChoice, "id" | "identityVersion">[]) =>
+    request<{ ok: true }>("/api/v1/mcp-access/authorization", {
+      method: "PUT",
+      body: JSON.stringify({ revision, servers }),
+    }),
+  endMcpAuthorization: () =>
+    request<{ ok: true }>("/api/v1/mcp-access/authorization", { method: "DELETE" }),
+  issueMcpToken: () =>
+    request<McpTokenInfo & { token: string }>("/api/v1/mcp-access/tokens", {
+      method: "POST",
+      body: "{}",
+    }),
+  revokeMcpToken: (id: string) =>
+    request<{ ok: true }>(`/api/v1/mcp-access/tokens/${encodeURIComponent(id)}`, { method: "DELETE" }),
   getMe: () => request<MeResponse>("/api/v1/me"),
   getAiSettings: () =>
     request<{ settings: AiSettings }>("/api/v1/me/ai-settings"),

@@ -8,6 +8,7 @@ export const ADDABLE_WIDGETS = [
   { type: "container", defaultSize: { w: 4, h: 7 } },
   { type: "quick_commands", defaultSize: { w: 3, h: 6 } },
   { type: "ai_command", defaultSize: { w: 3, h: 7 } },
+  { type: "mcp_access", defaultSize: { w: 3, h: 7 } },
 ] as const;
 
 export type AddableWidgetType = (typeof ADDABLE_WIDGETS)[number]["type"];

@@ -21,6 +21,7 @@ import { useLayoutLocked } from "@/lib/layout-lock";
 import { useLeavePageWarning } from "@/lib/use-leave-page-warning";
 import { ServerListWidget } from "@/widgets/ServerListWidget";
 import { FileManagerWidget } from "@/widgets/FileManagerWidget";
+import { McpAccessWidget } from "@/widgets/McpAccessWidget";
 import { AiCommandWidget } from "@/widgets/AiCommandWidget";
 import { QuickCommandsWidget } from "@/widgets/QuickCommandsWidget";
 import { StatusWidget } from "@/widgets/StatusWidget";
@@ -154,6 +155,7 @@ export function DashboardView() {
     null,
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mcpSettingsWidgetId, setMcpSettingsWidgetId] = useState<string | null>(null);
   const [addWidgetMenuOpen, setAddWidgetMenuOpen] = useState(false);
   const dashboardRef = useRef<Dashboard | null>(null);
   const persistTimerRef = useRef<number | null>(null);
@@ -1067,7 +1069,7 @@ export function DashboardView() {
             );
           }
 
-          if (widget.type === "ai_command") {
+          if (widget.type === "ai_command" || widget.type === "mcp_access") {
             return (
               <div className="widget-no-drag flex items-center gap-1">
                 <Button
@@ -1075,7 +1077,9 @@ export function DashboardView() {
                   size="sm"
                   variant="secondary"
                   title={t("common.settings")}
-                  onClick={() => setAiSettingsWidgetId(item.i)}
+                  onClick={() => widget.type === "mcp_access"
+                    ? setMcpSettingsWidgetId(item.i)
+                    : setAiSettingsWidgetId(item.i)}
                 >
                   <Settings className="h-3.5 w-3.5" />
                 </Button>
@@ -1227,6 +1231,15 @@ export function DashboardView() {
                 onConfigChange={(configJson) =>
                   handleWidgetConfigChange(widget.id, configJson)
                 }
+              />
+            );
+          }
+
+          if (widget.type === "mcp_access") {
+            return (
+              <McpAccessWidget
+                settingsOpen={mcpSettingsWidgetId === item.i}
+                onSettingsOpenChange={(open) => setMcpSettingsWidgetId(open ? item.i : null)}
               />
             );
           }
