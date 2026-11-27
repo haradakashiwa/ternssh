@@ -16,6 +16,26 @@ interface McpAccessWidgetProps {
   onSettingsOpenChange: (open: boolean) => void;
 }
 
+const desktopClientGuides = [
+  {
+    client: "claudeCode",
+    docs: "https://code.claude.com/docs/en/desktop#connect-external-tools",
+    config: {
+      type: "http",
+      url: "https://ternssh.example/mcp",
+      headers: { Authorization: "Bearer ${TERNSSH_CLAUDE_TOKEN}" },
+    },
+  },
+  {
+    client: "antigravityIde",
+    docs: "https://antigravity.google/docs/mcp?tab=ide",
+    config: {
+      serverUrl: "https://ternssh.example/mcp",
+      headers: { Authorization: "Bearer <ANTIGRAVITY_PAIRING_TOKEN>" },
+    },
+  },
+];
+
 export function McpAccessWidget({ settingsOpen, onSettingsOpenChange }: McpAccessWidgetProps) {
   const t = useT();
   const [state, setState] = useState<McpAccessState | null>(null);
@@ -185,6 +205,7 @@ export function McpAccessWidget({ settingsOpen, onSettingsOpenChange }: McpAcces
               </li>)}
             </ul>
             {issued ? <div className="space-y-2">
+              <p className="text-xs">{t("mcp.pairingId")} <code dir="ltr" className="break-all">{issued.id}</code></p>
               <label htmlFor="mcp-new-token" className="block text-xs">{t("mcp.copyOnce")}</label>
               <Input id="mcp-new-token" type="password" readOnly autoComplete="off" value={issued.token} />
               <Button size="sm" onClick={() => void copy(issued.token)}>{t("mcp.copyToken")}</Button>
@@ -192,6 +213,23 @@ export function McpAccessWidget({ settingsOpen, onSettingsOpenChange }: McpAcces
               onClick={() => void change(api.issueMcpToken, setIssued)}>{t("mcp.issue")}</Button>}
           </section>
           {message}
+          <section aria-labelledby="mcp-desktop-guides" className="space-y-2">
+            <h3 id="mcp-desktop-guides" className="text-sm font-medium">{t("mcp.desktopGuides")}</h3>
+            <p className="text-xs text-[var(--color-muted-foreground)]">{t("mcp.desktopPairing")}</p>
+            {desktopClientGuides.map(({ client, config, docs }) => (
+              <details key={client} className="rounded border p-2 text-xs">
+                <summary className="cursor-pointer font-medium">{t(`mcp.${client}.name`)}</summary>
+                <div className="mt-2 space-y-2">
+                  <p>{t(`mcp.${client}.setup`)}</p>
+                  <pre tabIndex={0} dir="ltr" className="overflow-x-auto rounded bg-[var(--color-muted)] p-2">
+                    <code>{JSON.stringify({ mcpServers: { ternssh: config } }, null, 2)}</code>
+                  </pre>
+                  <p>{t(`mcp.${client}.connect`)}</p>
+                  <a href={docs} target="_blank" rel="noreferrer" className="underline">{t("mcp.officialGuide")}</a>
+                </div>
+              </details>
+            ))}
+          </section>
         </div>
       </Modal>}
     </div>
