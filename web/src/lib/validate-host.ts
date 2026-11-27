@@ -18,7 +18,7 @@ function isIPv6(host: string): boolean {
   return /^[0-9a-fA-F:.]+$/.test(host);
 }
 
-function isIpAddress(host: string): boolean {
+export function isIpAddress(host: string): boolean {
   const normalized = stripBrackets(host);
   return isIPv4(normalized) || isIPv6(normalized);
 }

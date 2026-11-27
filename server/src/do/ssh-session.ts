@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import { getCredentialValue, getServer } from "../db/servers";
-import { buildSSHConnectionConfig } from "../lib/ssh-connection-config";
+import { getServer } from "../db/servers";
+import { loadSSHConnectionConfig } from "../lib/ssh-connection-config";
 import {
   buildLightStatusCommand,
   buildProcessMetricsCommand,
@@ -15,7 +15,7 @@ import {
   parseProcessLimitParam,
   parseStatusOutput,
 } from "../lib/server-status";
-import { connectToHost } from "../lib/resolve-host";
+import { connectToServer } from "../lib/resolve-host";
 import { SSHSession } from "../ssh/session";
 import type { SSHConnectionConfig } from "../ssh/types";
 
@@ -107,16 +107,14 @@ export class SshSession extends DurableObject<Env> {
       return new Response("Server not found", { status: 404 });
     }
 
-    const credential = await getCredentialValue(
+    const config = await loadSSHConnectionConfig(
       this.env.DB,
       session.user_id,
-      serverRecord.credential_ref,
+      serverRecord,
     );
-    if (!credential) {
+    if (!config) {
       return new Response("Credential not found", { status: 404 });
     }
-
-    const config = buildSSHConnectionConfig(serverRecord, credential);
 
     this.activeSession = session;
     queueMicrotask(() => {
@@ -472,14 +470,11 @@ export class SshSession extends DurableObject<Env> {
     );
     if (!serverRecord) return null;
 
-    const credential = await getCredentialValue(
+    this.connectionConfig = await loadSSHConnectionConfig(
       this.env.DB,
       session.user_id,
-      serverRecord.credential_ref,
+      serverRecord,
     );
-    if (!credential) return null;
-
-    this.connectionConfig = buildSSHConnectionConfig(serverRecord, credential);
     return this.connectionConfig;
   }
 
@@ -509,7 +504,7 @@ export class SshSession extends DurableObject<Env> {
     this.closeStatusSession();
 
     this.statusBootstrapping = (async () => {
-      const socket = await connectToHost(config.host, config.port);
+      const socket = await connectToServer(config);
 
       const noopWs = {
         send: () => {},
@@ -695,7 +690,7 @@ export class SshSession extends DurableObject<Env> {
     if (this.sshSession) return;
 
     this.bootstrapping = (async () => {
-      const socket = await connectToHost(config.host, config.port);
+      const socket = await connectToServer(config);
 
       this.connectionConfig = config;
       const session = new SSHSession(ws, socket, config, false, false);

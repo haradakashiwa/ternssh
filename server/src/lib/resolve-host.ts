@@ -1,3 +1,6 @@
+import { connectThroughTunnel } from "./cloudflare-tunnel";
+import type { SSHConnectionConfig } from "../ssh/types";
+
 const DOH_URL = "https://1.1.1.1/dns-query";
 
 const IPV4_RE =
@@ -109,6 +112,18 @@ export async function resolveHostAddress(host: string): Promise<string> {
   if (ipv6) return ipv6;
 
   throw new Error(`无法解析域名: ${normalized}`);
+}
+
+/** Opens the byte stream an SSH session runs over: direct TCP, or a Cloudflare Tunnel. */
+export async function connectToServer(config: SSHConnectionConfig) {
+  if (config.tunnel) {
+    const hostname = stripBrackets(config.host);
+    if (!isValidDomainName(hostname)) {
+      throw new Error("Cloudflare Tunnel 连接需要填写隧道的主机名（域名）");
+    }
+    return connectThroughTunnel(hostname, config.tunnel.accessToken);
+  }
+  return connectToHost(config.host, config.port);
 }
 
 export async function connectToHost(host: string, port: number) {

@@ -3,7 +3,21 @@ import {
   mergePrivateKeyCredential,
   validatePrivateKeyCredential,
 } from "../lib/private-key-credential";
-import type { GroupRecord, ServerPublic, ServerRecord, TreeNode } from "../types";
+import {
+  parseServiceToken,
+  serializeServiceToken,
+  type CloudflareAccessServiceToken,
+} from "../lib/cloudflare-tunnel";
+import type {
+  GroupRecord,
+  ServerConnectionType,
+  ServerPublic,
+  ServerRecord,
+  TreeNode,
+} from "../types";
+
+/** undefined keeps the stored token, null removes it. */
+export type TunnelTokenInput = CloudflareAccessServiceToken | null | undefined;
 
 function toPublic(server: ServerRecord): ServerPublic {
   return {
@@ -13,6 +27,8 @@ function toPublic(server: ServerRecord): ServerPublic {
     port: server.port,
     username: server.username,
     auth_type: server.auth_type,
+    connection_type: server.connection_type,
+    has_tunnel_token: server.tunnel_credential_ref !== null,
     group_id: server.group_id,
     sort_order: server.sort_order,
     created_at: server.created_at,
@@ -56,6 +72,7 @@ export async function listServersRaw(
   const { results } = await db
     .prepare(
       `SELECT id, user_id, name, host, port, username, auth_type, credential_ref,
+              connection_type, tunnel_credential_ref,
               group_id, sort_order, created_at, updated_at
        FROM servers WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC`,
     )
@@ -123,6 +140,7 @@ export async function getServer(
   return db
     .prepare(
       `SELECT id, user_id, name, host, port, username, auth_type, credential_ref,
+              connection_type, tunnel_credential_ref,
               group_id, sort_order, created_at, updated_at
        FROM servers WHERE id = ? AND user_id = ?`,
     )
@@ -257,10 +275,14 @@ export async function createServer(
     username: string;
     auth_type: "password" | "private_key";
     credential: string;
+    connection_type?: ServerConnectionType;
+    tunnel_token?: CloudflareAccessServiceToken | null;
     group_id?: string | null;
   },
 ): Promise<ServerPublic> {
   const groupId = input.group_id ?? null;
+  const connectionType = input.connection_type ?? "direct";
+  const tunnelToken = connectionType === "cloudflare_tunnel" ? input.tunnel_token ?? null : null;
   if (groupId) {
     const group = await getGroup(db, userId, groupId);
     if (!group) throw new Error("group not found");
@@ -273,17 +295,28 @@ export async function createServer(
   const serverId = newId();
   const credentialId = newId();
   const sortOrder = await nextSortOrder(db, userId, groupId, groupId);
+  const tunnelCredentialId = tunnelToken ? newId() : null;
 
-  await db.batch([
+  const statements = [
     db
       .prepare(
         "INSERT INTO credentials (id, user_id, value) VALUES (?, ?, ?)",
       )
       .bind(credentialId, userId, credential),
+  ];
+  if (tunnelToken && tunnelCredentialId) {
+    statements.push(
+      db
+        .prepare("INSERT INTO credentials (id, user_id, value) VALUES (?, ?, ?)")
+        .bind(tunnelCredentialId, userId, serializeServiceToken(tunnelToken)),
+    );
+  }
+  statements.push(
     db
       .prepare(
-        `INSERT INTO servers (id, user_id, name, host, port, username, auth_type, credential_ref, group_id, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO servers (id, user_id, name, host, port, username, auth_type, credential_ref,
+                              connection_type, tunnel_credential_ref, group_id, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         serverId,
@@ -294,10 +327,13 @@ export async function createServer(
         input.username,
         input.auth_type,
         credentialId,
+        connectionType,
+        tunnelCredentialId,
         groupId,
         sortOrder,
       ),
-  ]);
+  );
+  await db.batch(statements);
 
   const server = await getServer(db, userId, serverId);
   if (!server) throw new Error("Failed to create server");
@@ -316,6 +352,8 @@ export async function updateServer(
     auth_type?: "password" | "private_key";
     credential?: string;
     passphrase?: string;
+    connection_type?: ServerConnectionType;
+    tunnel_token?: TunnelTokenInput;
     group_id?: string | null;
   },
 ): Promise<ServerPublic | null> {
@@ -351,6 +389,33 @@ export async function updateServer(
     }
   }
 
+  // A direct connection keeps no tunnel token.
+  const nextConnectionType = input.connection_type ?? existing.connection_type;
+  const tunnelToken: TunnelTokenInput =
+    nextConnectionType === "direct" ? null : input.tunnel_token;
+  let tunnelCredentialRef = existing.tunnel_credential_ref;
+  let staleTunnelCredential: string | null = null;
+  if (tunnelToken === null && existing.tunnel_credential_ref) {
+    staleTunnelCredential = existing.tunnel_credential_ref;
+    tunnelCredentialRef = null;
+  } else if (tunnelToken) {
+    const value = serializeServiceToken(tunnelToken);
+    if (existing.tunnel_credential_ref) {
+      statements.push(
+        db
+          .prepare("UPDATE credentials SET value = ? WHERE id = ? AND user_id = ?")
+          .bind(value, existing.tunnel_credential_ref, userId),
+      );
+    } else {
+      tunnelCredentialRef = newId();
+      statements.push(
+        db
+          .prepare("INSERT INTO credentials (id, user_id, value) VALUES (?, ?, ?)")
+          .bind(tunnelCredentialRef, userId, value),
+      );
+    }
+  }
+
   statements.push(
     db
       .prepare(
@@ -360,6 +425,8 @@ export async function updateServer(
           port = ?,
           username = ?,
           auth_type = ?,
+          connection_type = ?,
+          tunnel_credential_ref = ?,
           group_id = ?,
           updated_at = datetime('now')
          WHERE id = ? AND user_id = ?`,
@@ -370,11 +437,20 @@ export async function updateServer(
         input.port ?? existing.port,
         input.username ?? existing.username,
         input.auth_type ?? existing.auth_type,
+        nextConnectionType,
+        tunnelCredentialRef,
         input.group_id !== undefined ? input.group_id : existing.group_id,
         serverId,
         userId,
       ),
   );
+  if (staleTunnelCredential) {
+    statements.push(
+      db
+        .prepare("DELETE FROM credentials WHERE id = ? AND user_id = ?")
+        .bind(staleTunnelCredential, userId),
+    );
+  }
 
   await db.batch(statements);
 
@@ -394,6 +470,8 @@ export async function copyServer(
     auth_type: "password" | "private_key";
     group_id?: string | null;
     credential?: string;
+    connection_type?: ServerConnectionType;
+    tunnel_token?: TunnelTokenInput;
   },
 ): Promise<ServerPublic> {
   const source = await getServer(db, userId, sourceId);
@@ -409,6 +487,14 @@ export async function copyServer(
   const groupId =
     input.group_id !== undefined ? input.group_id : source.group_id;
 
+  const connectionType = input.connection_type ?? source.connection_type;
+  let tunnelToken = input.tunnel_token;
+  if (tunnelToken === undefined && source.tunnel_credential_ref) {
+    tunnelToken = parseServiceToken(
+      await getCredentialValue(db, userId, source.tunnel_credential_ref),
+    );
+  }
+
   return createServer(db, userId, {
     name: input.name,
     host: input.host,
@@ -416,6 +502,8 @@ export async function copyServer(
     username: input.username,
     auth_type: input.auth_type,
     credential,
+    connection_type: connectionType,
+    tunnel_token: tunnelToken ?? null,
     group_id: groupId,
   });
 }
@@ -433,8 +521,8 @@ export async function deleteServer(
       .prepare("DELETE FROM servers WHERE id = ? AND user_id = ?")
       .bind(serverId, userId),
     db
-      .prepare("DELETE FROM credentials WHERE id = ? AND user_id = ?")
-      .bind(existing.credential_ref, userId),
+      .prepare("DELETE FROM credentials WHERE id IN (?, ?) AND user_id = ?")
+      .bind(existing.credential_ref, existing.tunnel_credential_ref, userId),
   ]);
 
   return true;

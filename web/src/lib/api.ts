@@ -10,6 +10,19 @@ export interface User {
   updated_at: string;
 }
 
+export type ServerConnectionType = "direct" | "cloudflare_tunnel";
+
+/** A Cloudflare Access service token; null removes a stored one, leaving it out keeps it. */
+export interface TunnelTokenInput {
+  client_id: string;
+  client_secret: string;
+}
+
+export interface ServerConnectionInput {
+  connection_type?: ServerConnectionType;
+  tunnel_token?: TunnelTokenInput | null;
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -17,6 +30,8 @@ export interface Server {
   port: number;
   username: string;
   auth_type: "password" | "private_key";
+  connection_type: ServerConnectionType;
+  has_tunnel_token: boolean;
   group_id: string | null;
   sort_order: number;
   created_at: string;
@@ -74,7 +89,7 @@ export interface MeResponse {
   authMode: "access" | "basic" | "onboarding";
 }
 
-export interface CreateServerInput {
+export interface CreateServerInput extends ServerConnectionInput {
   name: string;
   host: string;
   port: number;
@@ -84,7 +99,7 @@ export interface CreateServerInput {
   group_id?: string | null;
 }
 
-export interface CopyServerInput {
+export interface CopyServerInput extends ServerConnectionInput {
   name: string;
   host: string;
   port: number;
@@ -94,7 +109,7 @@ export interface CopyServerInput {
   group_id?: string | null;
 }
 
-export interface UpdateServerInput {
+export interface UpdateServerInput extends ServerConnectionInput {
   name?: string;
   host?: string;
   port?: number;

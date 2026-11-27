@@ -70,6 +70,10 @@ docker compose up -d --build
 
 详见 [部署指南](https://ternssh.com/docs/deployment)。
 
+## Cloudflare Tunnel
+
+通过 Cloudflare Tunnel 发布的服务器（即用 `cloudflared access ssh --hostname <host>` 连接的那种）可以选择 **Cloudflare Tunnel** 连接方式添加。主机填写 Tunnel 的公网主机名，端口由 Tunnel 的 ingress 规则决定。如果该主机名受 Cloudflare Access 保护，请在 Zero Trust 中创建 Service Token，在该应用的策略中以 **Service Auth** 放行它，并在服务器设置中填写 Client ID 和 Client Secret。不支持浏览器登录和 WARP 私有网络路由。升级时请执行 D1 迁移 `0011_cloudflare_tunnel.sql`。
+
 ## MCP 接入
 
 从「添加组件」加入「MCP 接入」卡片，选择服务器并点击「确认授权」。每次确认都会替换工作区的整份名单。所有已配对客户端共享当前名单。「结束本次授权」会清空名单，移除卡片后可重新添加以继续管理。

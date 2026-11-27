@@ -7,6 +7,8 @@ export interface User {
   updated_at: string;
 }
 
+export type ServerConnectionType = "direct" | "cloudflare_tunnel";
+
 export interface ServerRecord {
   id: string;
   user_id: string;
@@ -16,6 +18,8 @@ export interface ServerRecord {
   username: string;
   auth_type: "password" | "private_key";
   credential_ref: string;
+  connection_type: ServerConnectionType;
+  tunnel_credential_ref: string | null;
   group_id: string | null;
   sort_order: number;
   created_at: string;
@@ -29,6 +33,9 @@ export interface ServerPublic {
   port: number;
   username: string;
   auth_type: "password" | "private_key";
+  connection_type: ServerConnectionType;
+  /** Whether a Cloudflare Access service token is stored; the token itself never is returned. */
+  has_tunnel_token: boolean;
   group_id: string | null;
   sort_order: number;
   created_at: string;

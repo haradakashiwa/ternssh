@@ -14,6 +14,11 @@ import {
   serializePrivateKeyCredential,
 } from "@/lib/private-key-credential";
 import { isValidServerHost } from "@/lib/validate-host";
+import {
+  TunnelConnectionTypeSelect,
+  TunnelTokenFields,
+  useTunnelConnection,
+} from "@/components/TunnelConnectionFields";
 
 interface CopyServerDialogProps {
   open: boolean;
@@ -44,6 +49,7 @@ export function CopyServerDialog({
   const [passwordName, setPasswordName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tunnel = useTunnelConnection();
 
   useEffect(() => {
     if (!open || !source) return;
@@ -58,6 +64,7 @@ export function CopyServerDialog({
     setKeyName("");
     setSavePassword(false);
     setPasswordName("");
+    tunnel.reset(source);
     setError(null);
   }, [open, source, t]);
 
@@ -67,6 +74,11 @@ export function CopyServerDialog({
     event.preventDefault();
     if (!isValidServerHost(host)) {
       setError(t("addServer.invalidHost"));
+      return;
+    }
+    const tunnelError = tunnel.validate(host);
+    if (tunnelError) {
+      setError(t(tunnelError));
       return;
     }
     setSubmitting(true);
@@ -93,6 +105,7 @@ export function CopyServerDialog({
         port: Number(port),
         username,
         auth_type: authType,
+        ...tunnel.payload(),
         group_id: source.group_id,
         ...(storedCredential ? { credential: storedCredential } : {}),
       });
@@ -137,8 +150,9 @@ export function CopyServerDialog({
             required
           />
         </div>
+        <TunnelConnectionTypeSelect idPrefix="copy" state={tunnel} />
         <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2 grid gap-2">
+          <div className={tunnel.connectionType === "direct" ? "col-span-2 grid gap-2" : "col-span-3 grid gap-2"}>
             <Label htmlFor="copy-host">{t("addServer.host")}</Label>
             <Input
               id="copy-host"
@@ -147,6 +161,7 @@ export function CopyServerDialog({
               required
             />
           </div>
+          {tunnel.connectionType === "direct" && (
           <div className="grid gap-2">
             <Label htmlFor="copy-port">{t("addServer.port")}</Label>
             <Input
@@ -156,7 +171,12 @@ export function CopyServerDialog({
               required
             />
           </div>
+          )}
         </div>
+        {tunnel.connectionType === "cloudflare_tunnel" && (
+          <p className="-mt-2 text-[11px] text-[var(--color-muted-foreground)]">{t("tunnel.hostHint")}</p>
+        )}
+        <TunnelTokenFields idPrefix="copy" state={tunnel} hasStoredToken={source.has_tunnel_token} />
         <div className="grid gap-2">
           <Label htmlFor="copy-username">{t("addServer.username")}</Label>
           <Input

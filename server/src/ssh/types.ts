@@ -51,6 +51,10 @@ export interface SSHConnectionConfig {
   cols?: number;
   rows?: number;
   expectedFingerprint?: string;
+  /** Reach the server through a Cloudflare Tunnel instead of a direct TCP connection. */
+  tunnel?: {
+    accessToken: { clientId: string; clientSecret: string } | null;
+  };
 }
 
 export interface TerminalSize {

@@ -14,6 +14,11 @@ import {
   serializePrivateKeyCredential,
 } from "@/lib/private-key-credential";
 import { isValidServerHost } from "@/lib/validate-host";
+import {
+  TunnelConnectionTypeSelect,
+  TunnelTokenFields,
+  useTunnelConnection,
+} from "@/components/TunnelConnectionFields";
 
 interface EditServerDialogProps {
   open: boolean;
@@ -44,6 +49,7 @@ export function EditServerDialog({
   const [passwordName, setPasswordName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tunnel = useTunnelConnection();
 
   useEffect(() => {
     if (!open || !server) return;
@@ -58,6 +64,7 @@ export function EditServerDialog({
     setKeyName("");
     setSavePassword(false);
     setPasswordName("");
+    tunnel.reset(server);
     setError(null);
   }, [open, server]);
 
@@ -67,6 +74,11 @@ export function EditServerDialog({
     event.preventDefault();
     if (!isValidServerHost(host)) {
       setError(t("addServer.invalidHost"));
+      return;
+    }
+    const tunnelError = tunnel.validate(host);
+    if (tunnelError) {
+      setError(t(tunnelError));
       return;
     }
     const trimmedCredential = credential.trim();
@@ -99,6 +111,7 @@ export function EditServerDialog({
         port: Number(port),
         username,
         auth_type: authType,
+        ...tunnel.payload(),
         ...(storedCredential ? { credential: storedCredential } : {}),
         ...(!storedCredential && trimmedPassphrase
           ? { passphrase: trimmedPassphrase }
@@ -145,8 +158,9 @@ export function EditServerDialog({
             required
           />
         </div>
+        <TunnelConnectionTypeSelect idPrefix="edit" state={tunnel} />
         <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2 grid gap-2">
+          <div className={tunnel.connectionType === "direct" ? "col-span-2 grid gap-2" : "col-span-3 grid gap-2"}>
             <Label htmlFor="edit-host">{t("addServer.host")}</Label>
             <Input
               id="edit-host"
@@ -155,6 +169,7 @@ export function EditServerDialog({
               required
             />
           </div>
+          {tunnel.connectionType === "direct" && (
           <div className="grid gap-2">
             <Label htmlFor="edit-port">{t("addServer.port")}</Label>
             <Input
@@ -164,7 +179,12 @@ export function EditServerDialog({
               required
             />
           </div>
+          )}
         </div>
+        {tunnel.connectionType === "cloudflare_tunnel" && (
+          <p className="-mt-2 text-[11px] text-[var(--color-muted-foreground)]">{t("tunnel.hostHint")}</p>
+        )}
+        <TunnelTokenFields idPrefix="edit" state={tunnel} hasStoredToken={server.has_tunnel_token} />
         <div className="grid gap-2">
           <Label htmlFor="edit-username">{t("addServer.username")}</Label>
           <Input

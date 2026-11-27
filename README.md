@@ -70,6 +70,10 @@ Open http://localhost:8787 after startup. To enable Cloudflare Access authentica
 
 See the [deployment guide](https://ternssh.com/docs/deployment) for details.
 
+## Cloudflare Tunnel
+
+A server published through a Cloudflare Tunnel (the kind you reach with `cloudflared access ssh --hostname <host>`) can be added with the **Cloudflare Tunnel** connection type. Enter the tunnel's public hostname as the host; the tunnel's ingress rule decides the port. If Cloudflare Access protects the hostname, create a service token in Zero Trust, allow it in the application's policy with the **Service Auth** action, and enter its Client ID and Client Secret on the server. Browser sign-in and WARP private network routes are not supported. Apply D1 migration `0011_cloudflare_tunnel.sql` when upgrading.
+
 ## MCP access
 
 Add **MCP Access** from the dashboard component menu. Select servers and confirm the selection. Each confirmation replaces the complete selection for this workspace. Ending authorization clears the selection for all paired clients. Removing the card only removes it from the dashboard.

@@ -14,6 +14,11 @@ import {
   serializePrivateKeyCredential,
 } from "@/lib/private-key-credential";
 import { isValidServerHost } from "@/lib/validate-host";
+import {
+  TunnelConnectionTypeSelect,
+  TunnelTokenFields,
+  useTunnelConnection,
+} from "@/components/TunnelConnectionFields";
 
 interface AddServerDialogProps {
   open: boolean;
@@ -44,6 +49,7 @@ export function AddServerDialog({
   const [passwordName, setPasswordName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tunnel = useTunnelConnection();
 
   if (!open) return null;
 
@@ -59,6 +65,7 @@ export function AddServerDialog({
     setKeyName("");
     setSavePassword(false);
     setPasswordName("");
+    tunnel.reset();
     setError(null);
   };
 
@@ -66,6 +73,11 @@ export function AddServerDialog({
     event.preventDefault();
     if (!isValidServerHost(host)) {
       setError(t("addServer.invalidHost"));
+      return;
+    }
+    const tunnelError = tunnel.validate(host);
+    if (tunnelError) {
+      setError(t(tunnelError));
       return;
     }
     setSubmitting(true);
@@ -90,6 +102,7 @@ export function AddServerDialog({
         port: Number(port),
         username,
         auth_type: authType,
+        ...tunnel.payload(),
         credential: storedCredential,
         group_id: groupId,
       });
@@ -134,8 +147,9 @@ export function AddServerDialog({
               required
             />
           </div>
+          <TunnelConnectionTypeSelect idPrefix="add" state={tunnel} />
           <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 grid gap-2">
+            <div className={tunnel.connectionType === "direct" ? "col-span-2 grid gap-2" : "col-span-3 grid gap-2"}>
               <Label htmlFor="host">{t("addServer.host")}</Label>
               <Input
                 id="host"
@@ -144,6 +158,7 @@ export function AddServerDialog({
                 required
               />
             </div>
+            {tunnel.connectionType === "direct" && (
             <div className="grid gap-2">
               <Label htmlFor="port">{t("addServer.port")}</Label>
               <Input
@@ -153,7 +168,12 @@ export function AddServerDialog({
                 required
               />
             </div>
+            )}
           </div>
+          {tunnel.connectionType === "cloudflare_tunnel" && (
+            <p className="-mt-2 text-[11px] text-[var(--color-muted-foreground)]">{t("tunnel.hostHint")}</p>
+          )}
+          <TunnelTokenFields idPrefix="add" state={tunnel} hasStoredToken={false} />
           <div className="grid gap-2">
             <Label htmlFor="username">{t("addServer.username")}</Label>
             <Input

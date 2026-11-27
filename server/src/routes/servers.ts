@@ -17,8 +17,13 @@ import {
   validatePrivateKeyCredential,
 } from "../lib/private-key-credential";
 import { jsonError } from "../lib/http";
-import { isValidServerHost } from "../lib/resolve-host";
-import type { Variables } from "../types";
+import { isIpAddress, isValidServerHost } from "../lib/resolve-host";
+import {
+  parseServiceToken,
+  validateServiceToken,
+  type CloudflareAccessServiceToken,
+} from "../lib/cloudflare-tunnel";
+import type { ServerConnectionType, Variables } from "../types";
 
 export const serverRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -29,6 +34,38 @@ function validateHost(host: string | undefined): string | null {
     return "host must be a valid IP address or domain name";
   }
   return null;
+}
+
+type TunnelTokenBody = { client_id?: unknown; client_secret?: unknown } | null;
+
+/**
+ * Reads connection_type and tunnel_token from a request body. A tunnel_token of
+ * null removes a stored token; leaving it out keeps it.
+ */
+function parseConnection(body: {
+  connection_type?: unknown;
+  tunnel_token?: TunnelTokenBody;
+}): {
+  error?: string;
+  connectionType?: ServerConnectionType;
+  tunnelToken?: CloudflareAccessServiceToken | null;
+} {
+  const type = body.connection_type;
+  if (type !== undefined && type !== "direct" && type !== "cloudflare_tunnel") {
+    return { error: "connection_type must be direct or cloudflare_tunnel" };
+  }
+  if (body.tunnel_token === undefined) return { connectionType: type };
+  if (body.tunnel_token === null) return { connectionType: type, tunnelToken: null };
+  const token = validateServiceToken(body.tunnel_token.client_id, body.tunnel_token.client_secret);
+  if (!token) return { error: "tunnel_token needs a client_id and client_secret" };
+  return { connectionType: type, tunnelToken: token };
+}
+
+/** A tunnel is addressed by its public hostname, not an IP address. */
+function validateTunnelHost(host: string): string | null {
+  return isIpAddress(host)
+    ? "a Cloudflare Tunnel connection needs the tunnel's hostname"
+    : null;
 }
 
 serverRoutes.get("/tree", async (c) => {
@@ -142,6 +179,8 @@ serverRoutes.post("/", async (c) => {
     auth_type?: "password" | "private_key";
     credential?: string;
     group_id?: string | null;
+    connection_type?: unknown;
+    tunnel_token?: TunnelTokenBody;
   }>();
 
   if (!body.name?.trim()) return jsonError(c, 400, "name is required");
@@ -159,6 +198,12 @@ serverRoutes.post("/", async (c) => {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     return jsonError(c, 400, "port must be between 1 and 65535");
   }
+  const connection = parseConnection(body);
+  if (connection.error) return jsonError(c, 400, connection.error);
+  if (connection.connectionType === "cloudflare_tunnel") {
+    const tunnelHostError = validateTunnelHost(body.host!);
+    if (tunnelHostError) return jsonError(c, 400, tunnelHostError);
+  }
 
   try {
     const credential =
@@ -172,6 +217,8 @@ serverRoutes.post("/", async (c) => {
       username: body.username.trim(),
       auth_type: body.auth_type,
       credential,
+      connection_type: connection.connectionType,
+      tunnel_token: connection.tunnelToken,
       group_id: body.group_id ?? null,
     });
     return c.json({ server }, 201);
@@ -195,6 +242,8 @@ serverRoutes.post("/:id/copy", async (c) => {
     auth_type?: "password" | "private_key";
     credential?: string;
     group_id?: string | null;
+    connection_type?: unknown;
+    tunnel_token?: TunnelTokenBody;
   }>();
 
   if (!body.name?.trim()) return jsonError(c, 400, "name is required");
@@ -208,6 +257,12 @@ serverRoutes.post("/:id/copy", async (c) => {
   const port = body.port ?? 22;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     return jsonError(c, 400, "port must be between 1 and 65535");
+  }
+  const connection = parseConnection(body);
+  if (connection.error) return jsonError(c, 400, connection.error);
+  if (connection.connectionType === "cloudflare_tunnel") {
+    const tunnelHostError = validateTunnelHost(body.host!);
+    if (tunnelHostError) return jsonError(c, 400, tunnelHostError);
   }
 
   try {
@@ -225,6 +280,8 @@ serverRoutes.post("/:id/copy", async (c) => {
       username: body.username.trim(),
       auth_type: body.auth_type,
       credential,
+      connection_type: connection.connectionType,
+      tunnel_token: connection.tunnelToken,
       group_id: body.group_id ?? null,
     });
     return c.json({ server }, 201);
@@ -249,6 +306,8 @@ serverRoutes.put("/:id", async (c) => {
     credential?: string;
     passphrase?: string;
     group_id?: string | null;
+    connection_type?: unknown;
+    tunnel_token?: TunnelTokenBody;
   }>();
 
   if (
@@ -270,6 +329,9 @@ serverRoutes.put("/:id", async (c) => {
     if (hostError) return jsonError(c, 400, hostError);
   }
 
+  const connection = parseConnection(body);
+  if (connection.error) return jsonError(c, 400, connection.error);
+
   try {
     let credential = body.credential?.trim();
     const nextAuthType = body.auth_type;
@@ -285,6 +347,8 @@ serverRoutes.put("/:id", async (c) => {
       auth_type: body.auth_type,
       credential,
       passphrase: body.passphrase,
+      connection_type: connection.connectionType,
+      tunnel_token: connection.tunnelToken,
       group_id: body.group_id,
     });
 
@@ -314,7 +378,15 @@ serverRoutes.get("/:id/credential", async (c) => {
     port: server.port,
     username: server.username,
     auth_type: server.auth_type,
+    connection_type: server.connection_type,
+    tunnel_token: null as { client_id: string; client_secret: string } | null,
   };
+  if (server.connection_type === "cloudflare_tunnel" && server.tunnel_credential_ref) {
+    const token = parseServiceToken(
+      await getCredentialValue(c.env.DB, user.id, server.tunnel_credential_ref),
+    );
+    if (token) base.tunnel_token = { client_id: token.clientId, client_secret: token.clientSecret };
+  }
   if (server.auth_type === "password") {
     return c.json({ ...base, password: value });
   }
