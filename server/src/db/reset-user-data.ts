@@ -16,6 +16,13 @@ export async function resetUserData(
   db: D1Database,
   userId: string,
 ): Promise<DashboardWithWidgets> {
+  if (await tableExists(db, "mcp_authorizations")) {
+    await db.batch([
+      db.prepare("DELETE FROM mcp_tokens WHERE user_id = ?").bind(userId),
+      db.prepare("DELETE FROM mcp_authorizations WHERE user_id = ?").bind(userId),
+      db.prepare("DELETE FROM mcp_recent_calls WHERE user_id = ?").bind(userId),
+    ]);
+  }
   await db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId).run();
   await db.prepare("DELETE FROM servers WHERE user_id = ?").bind(userId).run();
   await db

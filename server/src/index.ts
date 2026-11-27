@@ -11,6 +11,8 @@ import { SshSession } from "./do/ssh-session";
 import { dashboardRoutes } from "./routes/dashboards";
 import { aiRoutes } from "./routes/ai";
 import { authRoutes } from "./routes/auth";
+import { mcpAccessRoutes } from "./routes/mcp-access";
+import { mcpRoutes } from "./routes/mcp";
 import { meRoutes } from "./routes/me";
 import { onboardingRoutes } from "./routes/onboarding";
 import { savedPasswordRoutes } from "./routes/saved-passwords";
@@ -31,6 +33,8 @@ function isPublicApiPath(pathname: string): boolean {
   );
 }
 
+app.route("/mcp", mcpRoutes);
+
 app.use(
   "*",
   cors({
@@ -41,8 +45,17 @@ app.use(
 );
 
 app.use("*", async (c, next) => {
-  const mode = await getAuthMode(c.env);
   const pathname = new URL(c.req.url).pathname;
+  if (pathname.startsWith("/api/") && /^Bearer +tmcp_/i.test(c.req.header("Authorization") ?? "")) {
+    return c.json({ error: "Web authentication required" }, 401, { "Cache-Control": "no-store" });
+  }
+  if (c.req.method === "POST" && (pathname === "/api/v1/me/reset" || pathname === "/api/v1/dashboards/reset")) {
+    const origin = c.req.header("Origin");
+    if ((origin !== undefined && origin !== new URL(c.req.url).origin) || c.req.header("Sec-Fetch-Site") === "cross-site") {
+      return c.json({ error: "Cross-site reset is not allowed" }, 403);
+    }
+  }
+  const mode = await getAuthMode(c.env);
   const acceptsJson = pathname.startsWith("/api/");
 
   const applyNoIndex = () => {
@@ -101,6 +114,7 @@ app.route("/api/v1/onboarding", onboardingRoutes);
 const v1 = new Hono<{ Bindings: Env; Variables: Variables }>();
 v1.route("/auth", authRoutes);
 v1.route("/me", meRoutes);
+v1.route("/mcp-access", mcpAccessRoutes);
 v1.route("/servers", serverRoutes);
 v1.route("/saved-passwords", savedPasswordRoutes);
 v1.route("/saved-private-keys", savedPrivateKeyRoutes);
